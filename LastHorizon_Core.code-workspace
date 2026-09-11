@@ -1,0 +1,50 @@
+{
+    "folders": [
+        {
+            "name": "/invaliddomain/LastHorizon_Core (LastHorizon_Core)",
+            "path": "H:/Fornite/LastHorizon_Core/Content"
+        },
+        {
+            "name": "/invaliddomain/LastHorizon_Core (LastHorizon_Core/Assets)",
+            "path": "C:/Users/Luca/AppData/Local/UnrealEditorFortnite/Saved/VerseProject/LastHorizon_Core/Digests/LastHorizon_Core-Assets"
+        },
+        {
+            "name": "vproject (read-only)",
+            "path": "C:/Users/Luca/AppData/Local/UnrealEditorFortnite/Saved/VerseProject/LastHorizon_Core/vproject"
+        },
+        {
+            "name": "Built-in Digests",
+            "path": "C:/Users/Luca/AppData/Local/UnrealEditorFortnite/Saved/VerseProject/LastHorizon_Core/Digests/BuiltIn"
+        }
+    ],
+    "settings": {
+        "files.exclude": {
+            "**/*.uasset": true,
+            "**/*.umap": true,
+            "**/*.png": true,
+            "**/*.jpg": true,
+            "**/*.tga": true,
+            "_INT": true,
+            "**/*.vproject": true,
+            "__ExternalActors__": true,
+            "__ExternalObjects__": true,
+            "Collections": true,
+            "Developers": true
+        },
+        "files.autoSave": "onWindowChange",
+        "workbench.colorTheme": "Verse (Dark)",
+        "editor.bracketPairColorization.enabled": false,
+        "editor.acceptSuggestionOnEnter": "off"
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Verse Debug",
+                "type": "verse",
+                "request": "attach",
+                "debugServer": 1961
+            }
+        ]
+    }
+}

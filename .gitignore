@@ -1,0 +1,16 @@
+# UEFN & Unreal Engine Ignore Rules
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vscode/
+.vs/
+*.log
+*.tmp
+.lore/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
