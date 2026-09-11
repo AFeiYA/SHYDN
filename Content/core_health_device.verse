@@ -155,7 +155,7 @@ core_health_device := class(creative_device):
         Print("【核心科技】护盾扩容成功！新护盾上限: {MaxCoreShield}")
 
     # 外部接口：查询当前是否处于濒死红色警报
-    IsEmergencyState<public>() : logic =
+    IsEmergencyState<public>()<transacts> : logic =
         if (CurrentAlert = alert_level.RedEmergency):
             return true
         return false

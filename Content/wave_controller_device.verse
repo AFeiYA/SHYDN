@@ -140,7 +140,7 @@ wave_controller_device := class(creative_device):
             Hud.Show()
 
     # 外部接口：获取当前波数与缩放
-    GetCurrentWaveIndex<public>() : int = CurrentWave
-    GetScalingFactor<public>() : float = PlayerCountScaling
+    GetCurrentWaveIndex<public>()<transacts> : int = CurrentWave
+    GetScalingFactor<public>()<transacts> : float = PlayerCountScaling
 
     StringToMessage<localizes>(Value : string) : message = "{Value}"

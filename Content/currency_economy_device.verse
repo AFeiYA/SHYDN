@@ -72,7 +72,7 @@ currency_economy_device := class(creative_device):
         if (set PlayerGoldMap[Agent] = NewTotal):
             NotifyPlayer(Agent, "-{Amount} 金币 (剩余储备: {NewTotal})")
 
-    GetGold<public>(Agent : agent) : int =
+    GetGold<public>(Agent : agent)<transacts> : int =
         if (Gold := PlayerGoldMap[Agent]):
             return Gold
         return 0
