@@ -50,7 +50,7 @@ currency_economy_device := class(creative_device):
             InitAgent(Player)
 
     InitAgent<public>(Agent : agent) : void =
-        if (not PlayerGoldMap[Agent]?):
+        if (not PlayerGoldMap[Agent]):
             if (set PlayerGoldMap[Agent] = StartingGold) {}
             if (set PlayerWeaponTierMap[Agent] = 1) {}
             # 发放初始蓝色武器

@@ -39,7 +39,7 @@ teleport_gate_device := class(creative_device):
     # 玩家申请入场
     OnPlayerRequestEnter(Agent : agent) : void =
         # 检查是否已在房内
-        if (ActivePlayersInRoom[Agent]?):
+        if (ActivePlayersInRoom[Agent] = true):
             Print("玩家已在练功房内！")
             return
 
@@ -67,7 +67,7 @@ teleport_gate_device := class(creative_device):
 
     # 强制将玩家传回主基地
     RecallPlayer(Agent : agent, Reason : string) : void =
-        if (ActivePlayersInRoom[Agent]?):
+        if (ActivePlayersInRoom[Agent] = true):
             # 移除登记
             var NewMap : [agent]logic = map{}
             for (Key -> Val : ActivePlayersInRoom, Key <> Agent):
@@ -84,20 +84,20 @@ teleport_gate_device := class(creative_device):
 
     # 玩家主动申请提前离开
     OnPlayerRequestEarlyExit(Agent : agent) : void =
-        if (ActivePlayersInRoom[Agent]?):
+        if (ActivePlayersInRoom[Agent] = true):
             RecallPlayer(Agent, "主动撤离练功房，返回主防线。")
 
     # 协程：等待玩家被移出活跃名单
     AwaitPlayerExit(Agent : agent)<suspends> : void =
         loop:
             Sleep(1.0)
-            if (not ActivePlayersInRoom[Agent]?):
+            if (not ActivePlayersInRoom[Agent]):
                 break
 
     # 核心陷入红色绝境时触发紧急提示
     OnCoreEmergencyAlert() : void =
         for (Agent -> IsActive : ActivePlayersInRoom):
-            if (IsActive?):
+            if (IsActive = true):
                 if (Hud := TimerHud?):
                     Hud.SetText(StringToMessage("【绝境警报】能量核心即将崩溃！请立刻撤离回防！"))
                     Hud.Show(Agent)
