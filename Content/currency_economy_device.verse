@@ -66,15 +66,11 @@ currency_economy_device := class(creative_device):
             NotifyPlayer(Agent, "+{Amount} 金币 (当前储备: {NewTotal})")
 
     # 扣除金币 (购买门票/强化装备)
-    DeductGold<public>(Agent : agent, Amount : int) : logic =
+    DeductGold<public>(Agent : agent, Amount : int) : void =
         Current := GetGold(Agent)
-        if (Current >= Amount):
-            NewTotal := Current - Amount
-            if (set PlayerGoldMap[Agent] = NewTotal):
-                NotifyPlayer(Agent, "-{Amount} 金币 (剩余储备: {NewTotal})")
-                return true
-        NotifyPlayer(Agent, "【余额不足】需要 {Amount} 金币，当前仅有 {Current}！")
-        return false
+        NewTotal := Current - Amount
+        if (set PlayerGoldMap[Agent] = NewTotal):
+            NotifyPlayer(Agent, "-{Amount} 金币 (剩余储备: {NewTotal})")
 
     GetGold<public>(Agent : agent) : int =
         if (Gold := PlayerGoldMap[Agent]):
@@ -88,34 +84,46 @@ currency_economy_device := class(creative_device):
         case (CurrentTier):
             1 =>
                 # 升级至 T2 (高爆金色武器)
-                if (DeductGold(Agent, Tier2UpgradeCost)?):
+                if (GetGold(Agent) >= Tier2UpgradeCost):
+                    DeductGold(Agent, Tier2UpgradeCost)
                     if (set PlayerWeaponTierMap[Agent] = 2):
                         if (Granter := Tier2Granter?):
                             Granter.GrantItem(Agent)
                         NotifyPlayer(Agent, "【军备质变】武器成功升阶为 T2 高爆机枪！")
+                else:
+                    NotifyPlayer(Agent, "【余额不足】升级需要 {Tier2UpgradeCost} 金币！")
             2 =>
                 # 升级至 T3 (终极神兵)
-                if (DeductGold(Agent, Tier3UpgradeCost)?):
+                if (GetGold(Agent) >= Tier3UpgradeCost):
+                    DeductGold(Agent, Tier3UpgradeCost)
                     if (set PlayerWeaponTierMap[Agent] = 3):
                         if (Granter := Tier3Granter?):
                             Granter.GrantItem(Agent)
                         NotifyPlayer(Agent, "【终极觉醒】已解锁 T3 神兵【雷神之怒】！")
+                else:
+                    NotifyPlayer(Agent, "【余额不足】升级需要 {Tier3UpgradeCost} 金币！")
             _ =>
                 NotifyPlayer(Agent, "当前武器已达至高级质变等级！")
 
     # 购买核心紧急维修 (+5000 HP)
     OnPlayerRequestCoreRepair(Agent : agent) : void =
         if (Core := CoreHealthDevice?):
-            if (DeductGold(Agent, RepairCost)?):
+            if (GetGold(Agent) >= RepairCost):
+                DeductGold(Agent, RepairCost)
                 Core.RepairCore(5000.0)
                 NotifyPlayer(Agent, "【工程指令】已注入纳米自愈凝胶，核心恢复 5,000 生命！")
+            else:
+                NotifyPlayer(Agent, "【余额不足】维修需要 {RepairCost} 金币！")
 
     # 购买核心护盾扩容 (+2000 MaxShield)
     OnPlayerRequestShieldUpgrade(Agent : agent) : void =
         if (Core := CoreHealthDevice?):
-            if (DeductGold(Agent, ShieldUpgradeCost)?):
+            if (GetGold(Agent) >= ShieldUpgradeCost):
+                DeductGold(Agent, ShieldUpgradeCost)
                 Core.UpgradeCoreShield(2000.0)
                 NotifyPlayer(Agent, "【科技升级】能量核心护盾上限永久扩容 +2,000！")
+            else:
+                NotifyPlayer(Agent, "【余额不足】升级护盾需要 {ShieldUpgradeCost} 金币！")
 
     NotifyPlayer(Agent : agent, MessageText : string) : void =
         Print(MessageText)

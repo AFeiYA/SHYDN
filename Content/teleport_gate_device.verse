@@ -31,8 +31,7 @@ teleport_gate_device := class(creative_device):
             ExitBtn.InteractedWithEvent.Subscribe(OnPlayerRequestEarlyExit)
 
         # 监听核心濒死事件
-        if (Core := CoreHealthDevice?):
-            Core.EmergencyAlertEvent.Subscribe(OnCoreEmergencyAlert)
+        spawn{ ListenCoreEmergencyAlert() }
 
         Print("【折跃门-{RoomName}】初始化完毕，限时: {MaxDurationSeconds}秒，门票: {TicketCost}")
 
@@ -101,5 +100,11 @@ teleport_gate_device := class(creative_device):
                 if (Hud := TimerHud?):
                     Hud.SetText(StringToMessage("【绝境警报】能量核心即将崩溃！请立刻撤离回防！"))
                     Hud.Show(Agent)
+
+    ListenCoreEmergencyAlert()<suspends> : void =
+        if (Core := CoreHealthDevice?):
+            loop:
+                Core.EmergencyAlertEvent.Await()
+                OnCoreEmergencyAlert()
 
     StringToMessage<localizes>(Value : string) : message = "{Value}"

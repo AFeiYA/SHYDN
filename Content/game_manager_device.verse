@@ -35,15 +35,11 @@ game_manager_device := class(creative_device):
         # 监听玩家加入
         GetPlayspace().PlayerAddedEvent().Subscribe(OnPlayerJoined)
 
-        # 监听核心损毁
-        if (Core := CoreHealthDevice?):
-            Core.CoreDestroyedEvent.Subscribe(OnCoreDestroyed)
-
-        # 监听波次事件
-        if (WaveCtrl := WaveControllerDevice?):
-            WaveCtrl.WaveStartedEvent.Subscribe(OnWaveStarted)
-            WaveCtrl.WaveClearedEvent.Subscribe(OnWaveCleared)
-            WaveCtrl.AllWavesCompletedEvent.Subscribe(OnAllWavesCleared)
+        # 启动事件监听协程
+        spawn{ ListenCoreDestroyed() }
+        spawn{ ListenWaveStarted() }
+        spawn{ ListenWaveCleared() }
+        spawn{ ListenAllWavesCleared() }
 
         # 启动战局主导流程
         spawn{ StartMatchFlow() }
@@ -101,6 +97,29 @@ game_manager_device := class(creative_device):
             AllPlayers := GetPlayspace().GetPlayers()
             if (FirstPlayer := AllPlayers[0]):
                 EndGame.Activate(FirstPlayer)
+
+    # 协程监听函数
+    ListenCoreDestroyed()<suspends> : void =
+        if (Core := CoreHealthDevice?):
+            Core.CoreDestroyedEvent.Await()
+            OnCoreDestroyed()
+
+    ListenWaveStarted()<suspends> : void =
+        if (WaveCtrl := WaveControllerDevice?):
+            loop:
+                WaveIndex := WaveCtrl.WaveStartedEvent.Await()
+                OnWaveStarted(WaveIndex)
+
+    ListenWaveCleared()<suspends> : void =
+        if (WaveCtrl := WaveControllerDevice?):
+            loop:
+                WaveIndex := WaveCtrl.WaveClearedEvent.Await()
+                OnWaveCleared(WaveIndex)
+
+    ListenAllWavesCleared()<suspends> : void =
+        if (WaveCtrl := WaveControllerDevice?):
+            WaveCtrl.AllWavesCompletedEvent.Await()
+            OnAllWavesCleared()
 
     BroadcastLore(Text : string) : void =
         Print(Text)
