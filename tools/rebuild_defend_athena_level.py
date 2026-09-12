@@ -131,12 +131,12 @@ def should_delete(actor):
 
 # Weapon Definitions mapped to Hero Classes and Tiers
 WEAPONS = {
-    'bm': [ # 疾风剑圣: 标准突击散弹枪 (从白到金)
-        '/Game/Athena/Items/Weapons/WID_Shotgun_Standard_Athena_C_Ore_T03.WID_Shotgun_Standard_Athena_C_Ore_T03',
-        '/Game/Athena/Items/Weapons/WID_Shotgun_Standard_Athena_UC_Ore_T03.WID_Shotgun_Standard_Athena_UC_Ore_T03',
-        '/Game/Athena/Items/Weapons/WID_Shotgun_Standard_Athena_R_Ore_T03.WID_Shotgun_Standard_Athena_R_Ore_T03',
-        '/Game/Athena/Items/Weapons/WID_Shotgun_Standard_Athena_VR_Ore_T03.WID_Shotgun_Standard_Athena_VR_Ore_T03',
-        '/Game/Athena/Items/Weapons/WID_Shotgun_Standard_Athena_SR_Ore_T03.WID_Shotgun_Standard_Athena_SR_Ore_T03'
+    'bm': [ # 疾风剑圣: 战斗霰弹枪 (从白到金)
+        '/Game/Athena/Items/Weapons/WID_Shotgun_Combat_Athena_C_Ore_T03.WID_Shotgun_Combat_Athena_C_Ore_T03',
+        '/Game/Athena/Items/Weapons/WID_Shotgun_Combat_Athena_UC_Ore_T03.WID_Shotgun_Combat_Athena_UC_Ore_T03',
+        '/Game/Athena/Items/Weapons/WID_Shotgun_Combat_Athena_R_Ore_T03.WID_Shotgun_Combat_Athena_R_Ore_T03',
+        '/Game/Athena/Items/Weapons/WID_Shotgun_Combat_Athena_VR_Ore_T03.WID_Shotgun_Combat_Athena_VR_Ore_T03',
+        '/Game/Athena/Items/Weapons/WID_Shotgun_Combat_Athena_SR_Ore_T03.WID_Shotgun_Combat_Athena_SR_Ore_T03'
     ],
     'dr': [ # 黑暗游侠: 连发自动突击步枪 (从白到金)
         '/Game/Athena/Items/Weapons/WID_Assault_Auto_Athena_C_Ore_T02.WID_Assault_Auto_Athena_C_Ore_T02',
@@ -248,7 +248,7 @@ def main():
     placed['btn_bm'] = client.place_device(CREATIVE_BUTTON, -450, -1350, GROUND_Z, yaw=270.0)
     placed['bb_bm'] = client.place_device(CREATIVE_BILLBOARD, -450, -1250, GROUND_Z + 50, yaw=270.0)
     client.set_object_properties(placed['bb_bm'], {
-        'text': '【疾风剑圣】敏捷刺客\n初始神兵: 精炼近战散弹枪\n特色: 极速切后排、致命顺劈暴击\n[ 按 E 选定职业 ]',
+        'text': '【疾风剑圣】敏捷刺客\n初始神兵: 强化战斗霰弹枪\n特色: 极速切后排、致命顺劈暴击\n[ 按 E 选定职业 ]',
         'textSize': 20
     })
 
