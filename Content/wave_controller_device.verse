@@ -125,11 +125,11 @@ wave_controller_device := class(creative_device):
     BroadcastWaveStart(Wave : int, Type : wave_type) : void =
         case (Type):
             wave_type.Standard =>
-                ShowAnnouncement("【怪潮来袭】第 {Wave} 波敌人发起正面猛攻！誓死捍卫核心！")
+                ShowAnnouncement("【四向突入】第 {Wave} 波敌人正从东、南、西、北四面发起猛攻！誓死捍卫核心！")
             wave_type.EliteBoss =>
-                ShowAnnouncement("【领主降临】第 {Wave} 波：高危虚空领主撕裂空间突入！")
+                ShowAnnouncement("【领主降临】第 {Wave} 波：高危虚空领主降临！四方怪潮全面压境！")
             wave_type.BonusCarnival =>
-                ShowAnnouncement("【淘金狂欢】第 {Wave} 波：检测到虚空运宝队！击碎它们打捞巨款！")
+                ShowAnnouncement("【淘金狂欢】第 {Wave} 波：虚空运宝队出没！击碎它们打捞巨款！")
             wave_type.FinalSovereign =>
                 ShowAnnouncement("【终局裁决】第 30 波：终焉领主·零界裁决者亲临！全员决战！")
 

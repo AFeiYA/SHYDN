@@ -34,6 +34,8 @@ game_manager_device := class(creative_device):
         
         # 监听玩家加入
         GetPlayspace().PlayerAddedEvent().Subscribe(OnPlayerJoined)
+        for (ExistingPlayer : GetPlayspace().GetPlayers()):
+            OnPlayerJoined(ExistingPlayer)
 
         # 启动事件监听协程
         spawn{ ListenCoreDestroyed() }
@@ -54,8 +56,8 @@ game_manager_device := class(creative_device):
     StartMatchFlow()<suspends> : void =
         set CurrentState = game_state.PreMatchCountdown
         
-        # 遵循 GDD 前 30 秒无废话设计
-        BroadcastLore("【HERA】特工就绪！30 秒后第一波跳虫撞门，拔出你的枪！誓死捍卫零号矩阵！")
+        # 遵循 GDD 前 30 秒无废话设计与全屏战术任务指引
+        BroadcastLore("【HERA】零号协议已激活！四向怪潮将在 30 秒后破门！前往各哨位领取装备！")
         Sleep(InitialCountdownSeconds)
 
         # 移交控制权给波次调度器
@@ -66,7 +68,7 @@ game_manager_device := class(creative_device):
     # 波次开始回调
     OnWaveStarted(WaveIndex : int) : void =
         set CurrentState = game_state.WaveInProgress
-        Print("【HERA】第 {WaveIndex} 阶段虚空共振开始，怪潮已出动！")
+        BroadcastLore("【HERA】第 {WaveIndex} 阶段虚空共振开始！敌人正从东、南、西、北四面逼近！各哨位坚守！")
 
     # 波次防守成功回调（全员通关分红）
     OnWaveCleared(WaveIndex : int) : void =
