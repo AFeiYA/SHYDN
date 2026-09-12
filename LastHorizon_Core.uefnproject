@@ -55,7 +55,19 @@
 				"bIsSceneGraphSystemAllowed": true,
 				"bEnableOneFilePerEntity": false
 			},
-			"version": 1
+			"version": 1,
+			"pythonExperimental":
+			{
+				"bEnablePythonForProject": true
+			},
+			"toolsets":
+			{
+				"bEnableToolsetsForProject": true
+			},
+			"inventory":
+			{
+				"bIsCustomInventoryAllowed": true
+			}
 		}
 	}
 }
