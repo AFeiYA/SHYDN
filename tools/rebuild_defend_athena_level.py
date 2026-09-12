@@ -225,12 +225,29 @@ def main():
 
     placed['end_game'] = client.place_device(CREATIVE_ENDGAME, 0, -800, GROUND_Z)
 
-    # Team Settings (Infinite Ammo, Grant on Respawn)
+    # Team Settings & Starting Inventory (Auto-Equip, Infinite Ammo, Grant on Spawn/Respawn)
     placed['team_settings'] = client.place_device(CREATIVE_TEAMSETTINGS, 0, -250, GROUND_Z)
+    starter_weapons = [
+        WEAPONS['bm'][0], # 疾风剑圣战斗霰弹枪
+        WEAPONS['dr'][0], # 黑暗游侠连发突击步枪
+        WEAPONS['dh'][0], # 恶魔猎手紧凑冲锋枪
+        WEAPONS['pal'][0] # 圣殿骑士重型突击机枪
+    ]
+    starter_items = [{
+        'itemDefinition': {'refPath': w},
+        'itemQuantity': 1,
+        'templateObjectData': None,
+        'itemOptionData': {'propertyOverrides': []},
+        'itemVariantGuid': '00000000-0000-0000-0000-000000000000',
+        'sourceItemVariantGuid': '00000000-0000-0000-0000-000000000000'
+    } for w in starter_weapons]
+    client.set_object_properties(f"{placed['team_settings']}.pickupItemList", {'itemListData': starter_items})
     client.set_object_properties(placed['team_settings'], {
         'bGrantItemsOnRespawn': True,
         'bGrantAmmoWithWeapons': True,
-        'bInfiniteAmmo': True
+        'bInfiniteAmmo': True,
+        'equipGrantedItem': 'First Item',
+        'grantCondition': 'Always'
     })
 
     print("\n--- PHASE 2: Deploying Hero Selection Temple (0, -1500) ---")
@@ -423,9 +440,11 @@ def main():
         client.set_object_properties(island_ref, {
             'allowBuilding': 'None',
             'bInfiniteAmmo': True,
-            'bInfiniteMagazineAmmo': False
+            'bInfiniteMagazineAmmo': False,
+            'autoStart': 5,
+            'gameStartCountdown': 3
         })
-        print("  [+] IslandSettings: Zero Build + Infinite Ammo configured")
+        print("  [+] IslandSettings: Zero Build + Infinite Ammo + AutoStart (5s) configured")
     except Exception as e:
         print(f"  [!] IslandSettings warning: {e}")
 
