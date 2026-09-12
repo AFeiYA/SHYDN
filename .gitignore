@@ -7,6 +7,7 @@ Saved/
 .vs/
 *.log
 *.tmp
+*.py
 .lore/
 
 # OS generated files
