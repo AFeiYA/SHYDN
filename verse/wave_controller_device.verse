@@ -54,8 +54,9 @@ wave_controller_device := class(creative_device):
     var BossSpawners : []creature_spawner_device = array{}
     var BonusSpawners : []creature_spawner_device = array{}
 
-    # HUD 战术广播
+    # HUD 战术广播与 RPG 英雄成长关联
     @editable WaveAnnouncementHud : ?hud_message_device = false
+    @editable HeroRpgDevice : ?hero_rpg_device = false
 
     # 运行时状态
     var CurrentWave : int = 0
@@ -113,6 +114,13 @@ wave_controller_device := class(creative_device):
             DisableAllSpawners()
             set IsWaveActive = false
             WaveClearedEvent.Signal(CurrentWave)
+
+            # 结算全队战利品 (对标魔兽争霸3《守护雅典娜》波次经验与金币发放)
+            if (HeroDevice := HeroRpgDevice?):
+                WaveGold := 100 + CurrentWave * 50
+                WaveExp := 150 + CurrentWave * 60
+                for (Player : GetPlayspace().GetPlayers()):
+                    HeroDevice.AwardKillExpAndGold(Player, WaveGold, WaveExp)
 
             if (CurrentWave >= MaxWaves):
                 AllWavesCompletedEvent.Signal()
