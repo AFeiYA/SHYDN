@@ -1,64 +1,37 @@
-#!/usr/bin/env python3
-"""
-Last Horizon: Core Protocol - Complete Level Rebuilder (Defend Athena Alignment)
-- 4-Direction Monster Incursion Camps (North, South, East, West at 2800m converging to center)
-- Core Objective Device driving monster aggro directly to Center
-- Creature Manager tuning speed, aggro, and rewards
-- 4-Direction Player Spawners (North, South, East, West around Core at 500m)
-- 4 Weapon Pedestals (Item Spawners) right beside each player spawner
-- 5 Holographic Guidance Billboards with distinct mission and sector instructions
-- Team Settings & Inventory: grant on respawn, infinite ammo
-- IslandSettings: Zero Build (allowBuilding='None') and Infinite Ammo
-- Diagonal Wings: Workshop (NE) and Teleport Portal (NW)
-"""
-
 import urllib.request
 import json
 import time
-import sys
 
 URL = 'http://127.0.0.1:8000/mcp'
 
-class UefnMcpClient:
+class UefnClient:
     def __init__(self, url=URL):
         self.url = url
         self.session_id = None
         self.init()
 
     def rpc(self, method, params):
-        payload = {
-            'jsonrpc': '2.0',
-            'id': 1,
-            'method': method,
-            'params': params
-        }
+        payload = {'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}
         headers = {'Content-Type': 'application/json'}
         if self.session_id:
             headers['Mcp-Session-Id'] = self.session_id
-        data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(self.url, data=data, headers=headers)
+        req = urllib.request.Request(self.url, data=json.dumps(payload).encode('utf-8'), headers=headers)
         with urllib.request.urlopen(req) as resp:
-            resp_session = resp.headers.get('Mcp-Session-Id')
-            if resp_session:
-                self.session_id = resp_session
-            body = resp.read().decode('utf-8')
-            return json.loads(body)
+            sess = resp.headers.get('Mcp-Session-Id')
+            if sess:
+                self.session_id = sess
+            return json.loads(resp.read().decode('utf-8'))
 
     def init(self):
-        print(f"[*] Connecting to UEFN MCP ({self.url})...")
         res = self.rpc('initialize', {
             'protocolVersion': '2024-11-05',
             'capabilities': {},
-            'clientInfo': {'name': 'AthenaLevelRebuilder', 'version': '1.0'}
+            'clientInfo': {'name': 'CleanAndDeploy', 'version': '1.0'}
         })
-        print(f"[+] Connected! Session: {self.session_id}")
+        print(f"[+] UEFN Connected. Session: {self.session_id}")
 
     def call_tool(self, toolset, tool, args):
-        payload = {
-            'toolset_name': toolset,
-            'tool_name': tool,
-            'arguments': args
-        }
+        payload = {'toolset_name': toolset, 'tool_name': tool, 'arguments': args}
         res = self.rpc('tools/call', {'name': 'call_tool', 'arguments': payload})
         if res.get('result', {}).get('isError'):
             err = res['result']['content'][0]['text']
@@ -70,6 +43,13 @@ class UefnMcpClient:
             except:
                 return content[0]['text']
         return res
+
+    def find_all_actors(self):
+        res = self.call_tool('editor_toolset.toolsets.scene.SceneTools', 'find_actors', {'collision_channels': []})
+        return res.get('returnValue', [])
+
+    def remove_actor(self, ref):
+        return self.call_tool('editor_toolset.toolsets.scene.SceneTools', 'remove_from_scene', {'actor': {'refPath': ref}})
 
     def place_device(self, asset_ref, x, y, z=1155.0, yaw=0.0, pitch=0.0, roll=0.0):
         res = self.call_tool('ValkyrieToolset.DeviceToolset', 'PlaceDevice', {
@@ -89,7 +69,6 @@ class UefnMcpClient:
             val_str = json.dumps(value)
         else:
             val_str = str(value)
-
         return self.call_tool('ValkyrieToolset.DeviceToolset', 'SetDeviceProperty', {
             'device': {'refPath': device_ref},
             'propertyName': prop_name,
@@ -103,17 +82,6 @@ class UefnMcpClient:
             'values': val_str
         })
 
-    def remove_actor(self, actor_ref):
-        return self.call_tool('editor_toolset.toolsets.scene.SceneTools', 'remove_from_scene', {
-            'actor': {'refPath': actor_ref}
-        })
-
-    def find_all_actors(self):
-        res = self.call_tool('editor_toolset.toolsets.scene.SceneTools', 'find_actors', {
-            'collision_channels': []
-        })
-        return res.get('returnValue', [])
-
     def add_event_binding(self, src_device, src_event, dst_device, dst_func):
         return self.call_tool('ValkyrieToolset.DeviceToolset', 'AddEventBinding', {
             'sourceDevicePath': {'refPath': src_device},
@@ -123,34 +91,61 @@ class UefnMcpClient:
         })
 
     def save_all(self):
-        print("[*] Saving all dirty level assets to disk...")
+        print("[*] Saving dirty level assets to disk...")
         res = self.call_tool('editor_toolset.toolsets.asset.AssetTools', 'save_assets', {'asset_paths': []})
         print(f"[+] Assets saved: {res}")
         return res
 
-def run():
-    client = UefnMcpClient()
+PROTECTED = {
+    'FortWorldSettings', 'Brush', 'WorldDataLayers', 'BuoyancyManager',
+    'MassVisualizer', 'DefaultPhysicsVolume', 'GameplayDebuggerPlayerManager',
+    'ChaosDebugDrawActor', 'IslandSettings', 'BuilderGridPlane',
+    'LevelBounds', 'WaterZone', 'WorldPartitionMiniMap', 'InstancedFoliageActor',
+    'Cube_2', 'FortInspectorCameraCreative', 'LastHorizon_Core_SimulationEntityActor',
+    'DSA_UEFN', 'SmartObjectSubsystemRenderingActor', 'AbstractNavData'
+}
+
+def should_delete(actor):
+    path = actor.get('actorPath') or actor.get('refPath') or ''
+    name = actor.get('name') or ''
+    label = actor.get('label') or ''
+    cls = actor.get('class', {}).get('refPath', '')
+    native_cls = actor.get('nativeClass', {}).get('refPath', '')
+
+    for prot in PROTECTED:
+        if prot in name or prot in path:
+            return False
+
+    # Check for Verse device
+    if 'VerseDevice' in path or 'VerseDevice' in cls or 'VerseDevice' in native_cls:
+        return True
+
+    # Check for Creative devices
+    keywords = [
+        'Device', 'Spawner', 'Deimos', 'PlayerStart', 'Billboard',
+        'Granter', 'Button', 'Teleport', 'Creature', 'EndGame',
+        'Objective', 'TeamSettings'
+    ]
+    if any(k in path or k in name or k in label or k in cls or k in native_cls for k in keywords):
+        return True
+
+    return False
+
+def main():
+    client = UefnClient()
     GROUND_Z = 1155.0
 
-    print("\n=======================================================")
-    print("  PHASE 0: Cleaning Old Dynamic Gameplay Actors")
-    print("=======================================================")
+    print("\n--- PHASE 0: Comprehensive Cleanup ---")
     actors = client.find_all_actors()
-    to_delete = []
-    for a in actors:
-        label = a.get('label', '')
-        ref = a.get('actorPath', '')
-        cls = a.get('class', {}).get('refPath', '')
-        if any(w in label for w in ['Creature Spawner', 'Player Spawner', 'Button', 'Item Granter', 'Item Spawner', 'Teleporter', 'Billboard', 'TeamSettings', 'Objective', 'CreatureManager']) or 'VerseDevice' in cls:
-            to_delete.append(ref)
-
-    print(f"[*] Found {len(to_delete)} gameplay actors to clean up...")
-    for ref in to_delete:
+    to_delete = [a for a in actors if should_delete(a)]
+    print(f"[*] Found {len(to_delete)} gameplay actors to clean up.")
+    for a in to_delete:
+        ref = a.get('actorPath') or a.get('refPath')
         try:
             client.remove_actor(ref)
+            print(f"  [-] Removed: {a.get('label', '')} ({ref.split('.')[-1]})")
         except Exception as e:
-            print(f"  Warning deleting {ref}: {e}")
-    print("[+] Cleanup complete.")
+            print(f"  [!] Failed to remove {ref}: {e}")
 
     # Assets
     VERSE_CORE = '/LastHorizon_Core/_Verse.core_health_device'
@@ -160,7 +155,7 @@ def run():
     VERSE_GM = '/LastHorizon_Core/_Verse.game_manager_device'
 
     CREATIVE_SPAWNER = '/CRD_PlayerSpawn/ItemDefinitions/PID_Device_PlayerSpawnPad.PID_Device_PlayerSpawnPad'
-    CREATIVE_DEIMOS = '/CR_Legacy/Playsets/PID_CP_Devices_DeimosSpawner.PID_CP_Devices_DeimosSpawner'
+    CREATIVE_CREATURESPAWNER = '/CRD_Creatures/SetupAssets/PID_Device_CreatureSpawner_V2.PID_Device_CreatureSpawner_V2'
     CREATIVE_BUTTON = '/CreativeCoreDevices/SetupAssets/PID_Device_Button.PID_Device_Button'
     CREATIVE_TELEPORTER = '/CreativeCoreDevices/SetupAssets/PID_Device_Teleporter.PID_Device_Teleporter'
     CREATIVE_GRANTER = '/CreativeCoreDevices/SetupAssets/PID_Device_ItemGranter.PID_Device_ItemGranter'
@@ -173,31 +168,36 @@ def run():
 
     placed = {}
 
-    print("\n=======================================================")
-    print("  PHASE 1: Core Sanctuary & Verse Brains (0, 0)")
-    print("=======================================================")
+    print("\n--- PHASE 1: Deploying Core Sanctuary & Verse Devices ---")
     placed['core'] = client.place_device(VERSE_CORE, 0, 0, GROUND_Z)
     placed['core_sub'] = f"{placed['core']}.core_health_device_0"
-    
-    # Place Objective Device at Core to drive monster aggro inward!
-    placed['objective'] = client.place_device(CREATIVE_OBJECTIVE, 0, 0, GROUND_Z + 30)
-    print("  [+] Core Objective Target placed at (0, 0)")
+    print(f"  [+] Core Health Device: {placed['core']}")
 
-    # Creature Manager to tune creature speed & damage
+    placed['objective'] = client.place_device(CREATIVE_OBJECTIVE, 0, 0, GROUND_Z + 30)
+    print(f"  [+] Core Objective Target: {placed['objective']}")
+
     placed['creature_mgr'] = client.place_device(CREATIVE_CREATUREMGR, 0, -350, GROUND_Z)
-    print("  [+] Creature Manager placed at (0, -350)")
+    print(f"  [+] Creature Manager: {placed['creature_mgr']}")
 
     placed['gm'] = client.place_device(VERSE_GM, 0, -100, GROUND_Z)
     placed['gm_sub'] = f"{placed['gm']}.game_manager_device_0"
+    print(f"  [+] Game Manager Device: {placed['gm']}")
+
     placed['wave'] = client.place_device(VERSE_WAVE, 0, -200, GROUND_Z)
     placed['wave_sub'] = f"{placed['wave']}.wave_controller_device_0"
+    print(f"  [+] Wave Controller Device: {placed['wave']}")
+
     placed['economy'] = client.place_device(VERSE_ECONOMY, 150, -100, GROUND_Z)
     placed['economy_sub'] = f"{placed['economy']}.currency_economy_device_0"
+    print(f"  [+] Currency Economy Device: {placed['economy']}")
+
     placed['teleport'] = client.place_device(VERSE_TELEPORT, -150, -100, GROUND_Z)
     placed['teleport_sub'] = f"{placed['teleport']}.teleport_gate_device_0"
+    print(f"  [+] Teleport Gate Device: {placed['teleport']}")
+
     placed['end_game'] = client.place_device(CREATIVE_ENDGAME, 0, -800, GROUND_Z)
 
-    # Team Settings & Inventory (Equip items on spawn, infinite ammo)
+    # Team Settings & Inventory
     placed['team_settings'] = client.place_device(CREATIVE_TEAMSETTINGS, 0, -250, GROUND_Z)
     client.set_object_properties(placed['team_settings'], {
         'bGrantItemsOnRespawn': True,
@@ -205,100 +205,89 @@ def run():
         'bInfiniteAmmo': True
     })
 
-    print("\n=======================================================")
-    print("  PHASE 2: 4-Direction Player Spawners & Weapon Pedestals")
-    print("=======================================================")
-    # 4 Player Spawners facing outward at radius 500m
+    print("\n--- PHASE 2: Deploying 4 Player Spawners & Weapon Stations (500m) ---")
     placed['player_north'] = client.place_device(CREATIVE_SPAWNER, 0, 500, GROUND_Z, yaw=90.0)
     placed['player_south'] = client.place_device(CREATIVE_SPAWNER, 0, -500, GROUND_Z, yaw=270.0)
     placed['player_east'] = client.place_device(CREATIVE_SPAWNER, 500, 0, GROUND_Z, yaw=0.0)
     placed['player_west'] = client.place_device(CREATIVE_SPAWNER, -500, 0, GROUND_Z, yaw=180.0)
 
-    # 4 Weapon Item Spawners right beside each player spawner
     placed['item_north'] = client.place_device(CREATIVE_ITEMSPAWNER, 60, 500, GROUND_Z)
     placed['item_south'] = client.place_device(CREATIVE_ITEMSPAWNER, 60, -500, GROUND_Z)
     placed['item_east'] = client.place_device(CREATIVE_ITEMSPAWNER, 500, 60, GROUND_Z)
     placed['item_west'] = client.place_device(CREATIVE_ITEMSPAWNER, -500, 60, GROUND_Z)
 
-    print("  [+] North Guard Post: Player Spawner (0, 500) + Weapon Station (60, 500)")
-    print("  [+] South Guard Post: Player Spawner (0, -500) + Weapon Station (60, -500)")
-    print("  [+] East Guard Post: Player Spawner (500, 0) + Weapon Station (500, 60)")
-    print("  [+] West Guard Post: Player Spawner (-500, 0) + Weapon Station (-500, 60)")
-
-    print("\n=======================================================")
-    print("  PHASE 3: Holographic Guidance Billboards")
-    print("=======================================================")
-    # Center Core Billboard
+    print("\n--- PHASE 3: Deploying Holographic Guidance Billboards ---")
     placed['bb_center'] = client.place_device(CREATIVE_BILLBOARD, 0, 120, GROUND_Z + 50, yaw=270.0)
     client.set_object_properties(placed['bb_center'], {
         'text': '【零号矩阵能量核心】\n生命值: 30,000 | 护盾: 10,000\n核心一旦被击毁，防线彻底沦陷！',
         'textSize': 24
     })
 
-    # North Spawner Billboard
     placed['bb_north'] = client.place_device(CREATIVE_BILLBOARD, 0, 620, GROUND_Z + 50, yaw=90.0)
     client.set_object_properties(placed['bb_north'], {
         'text': '【北哨位·正面防线】\n怪物正从正北 2800m 裂隙集结，持枪迎战！',
         'textSize': 22
     })
 
-    # South Spawner Billboard
     placed['bb_south'] = client.place_device(CREATIVE_BILLBOARD, 0, -620, GROUND_Z + 50, yaw=270.0)
     client.set_object_properties(placed['bb_south'], {
         'text': '【南哨位·防御裂隙】\n怪物正从正南 2800m 裂隙突入，誓死坚守！',
         'textSize': 22
     })
 
-    # East Spawner Billboard
     placed['bb_east'] = client.place_device(CREATIVE_BILLBOARD, 620, 0, GROUND_Z + 50, yaw=0.0)
     client.set_object_properties(placed['bb_east'], {
         'text': '【东哨位·军备工坊区】\n击杀怪物收集金币，在东北侧升级高爆神兵！',
         'textSize': 22
     })
 
-    # West Spawner Billboard
     placed['bb_west'] = client.place_device(CREATIVE_BILLBOARD, -620, 0, GROUND_Z + 50, yaw=180.0)
     client.set_object_properties(placed['bb_west'], {
-        'text': '【西哨位·折跃枢纽】\n靠近西北侧传送门进入 45 秒限时打金房！',
+        'text': '【西哨位·折跃练功房】\n击杀间隙可前往西北折跃门刷怪快速发育！',
         'textSize': 22
     })
 
-    print("\n=======================================================")
-    print("  PHASE 4: 4-Direction Monster Incursion Camps (2800m)")
-    print("=======================================================")
-    DIST = 2800.0
-    # 1. NORTH CAMP (2800m North, marching South toward (0,0))
-    print("[*] Placing North Incursion Camp (0, 2800)...")
-    placed['spawner_n1'] = client.place_device(CREATIVE_DEIMOS, -350, DIST, GROUND_Z, yaw=270.0)
-    placed['spawner_n2'] = client.place_device(CREATIVE_DEIMOS, 0, DIST, GROUND_Z, yaw=270.0)
-    placed['spawner_n3'] = client.place_device(CREATIVE_DEIMOS, 350, DIST, GROUND_Z, yaw=270.0)
+    print("\n--- PHASE 4: Deploying 4 Incursion Camps (2800m) ---")
+    # North Incursion (2800m)
+    placed['spawner_n1'] = client.place_device(CREATIVE_CREATURESPAWNER, 0, 2800, GROUND_Z, yaw=270.0)
+    placed['spawner_n2'] = client.place_device(CREATIVE_CREATURESPAWNER, -400, 2750, GROUND_Z, yaw=270.0)
+    placed['spawner_n3'] = client.place_device(CREATIVE_CREATURESPAWNER, 400, 2750, GROUND_Z, yaw=270.0)
 
-    # 2. SOUTH CAMP (2800m South, marching North toward (0,0))
-    print("[*] Placing South Incursion Camp (0, -2800)...")
-    placed['spawner_s1'] = client.place_device(CREATIVE_DEIMOS, -350, -DIST, GROUND_Z, yaw=90.0)
-    placed['spawner_s2'] = client.place_device(CREATIVE_DEIMOS, 0, -DIST, GROUND_Z, yaw=90.0)
-    placed['spawner_s3'] = client.place_device(CREATIVE_DEIMOS, 350, -DIST, GROUND_Z, yaw=90.0)
+    # South Incursion (2800m)
+    placed['spawner_s1'] = client.place_device(CREATIVE_CREATURESPAWNER, 0, -2800, GROUND_Z, yaw=90.0)
+    placed['spawner_s2'] = client.place_device(CREATIVE_CREATURESPAWNER, -400, -2750, GROUND_Z, yaw=90.0)
+    placed['spawner_s3'] = client.place_device(CREATIVE_CREATURESPAWNER, 400, -2750, GROUND_Z, yaw=90.0)
 
-    # 3. EAST CAMP (2800m East, marching West toward (0,0))
-    print("[*] Placing East Incursion Camp (2800, 0)...")
-    placed['spawner_e1'] = client.place_device(CREATIVE_DEIMOS, DIST, -350, GROUND_Z, yaw=180.0)
-    placed['spawner_e2'] = client.place_device(CREATIVE_DEIMOS, DIST, 0, GROUND_Z, yaw=180.0)
-    placed['spawner_e3'] = client.place_device(CREATIVE_DEIMOS, DIST, 350, GROUND_Z, yaw=180.0)
+    # East Incursion (2800m)
+    placed['spawner_e1'] = client.place_device(CREATIVE_CREATURESPAWNER, 2800, 0, GROUND_Z, yaw=180.0)
+    placed['spawner_e2'] = client.place_device(CREATIVE_CREATURESPAWNER, 2750, -400, GROUND_Z, yaw=180.0)
+    placed['spawner_e3'] = client.place_device(CREATIVE_CREATURESPAWNER, 2750, 400, GROUND_Z, yaw=180.0)
 
-    # 4. WEST CAMP (2800m West, marching East toward (0,0))
-    print("[*] Placing West Incursion Camp (-2800, 0)...")
-    placed['spawner_w1'] = client.place_device(CREATIVE_DEIMOS, -DIST, -350, GROUND_Z, yaw=0.0)
-    placed['spawner_w2'] = client.place_device(CREATIVE_DEIMOS, -DIST, 0, GROUND_Z, yaw=0.0)
-    placed['spawner_w3'] = client.place_device(CREATIVE_DEIMOS, -DIST, 350, GROUND_Z, yaw=0.0)
+    # West Incursion (2800m)
+    placed['spawner_w1'] = client.place_device(CREATIVE_CREATURESPAWNER, -2800, 0, GROUND_Z, yaw=0.0)
+    placed['spawner_w2'] = client.place_device(CREATIVE_CREATURESPAWNER, -2750, -400, GROUND_Z, yaw=0.0)
+    placed['spawner_w3'] = client.place_device(CREATIVE_CREATURESPAWNER, -2750, 400, GROUND_Z, yaw=0.0)
 
-    # Special Boss & Carnival Spawners
-    placed['spawner_boss'] = client.place_device(CREATIVE_DEIMOS, 0, 3800, GROUND_Z, yaw=270.0)
-    placed['spawner_bonus'] = client.place_device(CREATIVE_DEIMOS, 0, 2000, GROUND_Z, yaw=270.0)
+    # Boss & Bonus Spawners
+    placed['spawner_boss'] = client.place_device(CREATIVE_CREATURESPAWNER, 0, 3100, GROUND_Z, yaw=270.0)
+    placed['spawner_bonus'] = client.place_device(CREATIVE_CREATURESPAWNER, 0, 2000, GROUND_Z, yaw=270.0)
 
-    print("\n=======================================================")
-    print("  PHASE 5: Diagonal Wings - Forge (NE) & Teleport (NW)")
-    print("=======================================================")
-    # North-East Wing: Weapon Forge & Logistics
+    # Tune Spawner activation and despawn range
+    spawner_keys = [
+        'spawner_n1', 'spawner_n2', 'spawner_n3',
+        'spawner_s1', 'spawner_s2', 'spawner_s3',
+        'spawner_e1', 'spawner_e2', 'spawner_e3',
+        'spawner_w1', 'spawner_w2', 'spawner_w3',
+        'spawner_boss', 'spawner_bonus'
+    ]
+    for sk in spawner_keys:
+        client.set_object_properties(placed[sk], {
+            'activation Range': 35000,
+            'despawn Range': 60000
+        })
+
+    print("\n--- PHASE 5: Deploying Diagonal Wings (Forge & Farm Portal) ---")
+    # NE Wing: Forge
     placed['btn_weapon_upgrade'] = client.place_device(CREATIVE_BUTTON, 300, 300, GROUND_Z, yaw=225.0)
     placed['btn_core_repair'] = client.place_device(CREATIVE_BUTTON, 380, 220, GROUND_Z, yaw=225.0)
     placed['btn_shield_upgrade'] = client.place_device(CREATIVE_BUTTON, 220, 380, GROUND_Z, yaw=225.0)
@@ -307,65 +296,82 @@ def run():
     placed['granter_t2'] = client.place_device(CREATIVE_GRANTER, 480, 380, GROUND_Z)
     placed['granter_t3'] = client.place_device(CREATIVE_GRANTER, 380, 480, GROUND_Z)
 
-    # North-West Wing: Farm Portal & Sanctuary Return
+    # NW Wing: Farm Portals
     placed['btn_farm_enter'] = client.place_device(CREATIVE_BUTTON, -300, 300, GROUND_Z, yaw=315.0)
     placed['tp_farm_depart'] = client.place_device(CREATIVE_TELEPORTER, -380, 380, GROUND_Z)
     placed['tp_base_return'] = client.place_device(CREATIVE_TELEPORTER, -220, 380, GROUND_Z)
 
-    # Far Isolated Farm Room at (15000, 15000)
     FARM_X, FARM_Y = 15000, 15000
     placed['tp_farm_arrival'] = client.place_device(CREATIVE_TELEPORTER, FARM_X, FARM_Y, GROUND_Z)
     placed['btn_farm_exit'] = client.place_device(CREATIVE_BUTTON, FARM_X, FARM_Y - 400, GROUND_Z, yaw=180.0)
     placed['tp_farm_return_src'] = client.place_device(CREATIVE_TELEPORTER, FARM_X, FARM_Y - 500, GROUND_Z)
-    placed['farm_spawner_1'] = client.place_device(CREATIVE_DEIMOS, FARM_X - 300, FARM_Y + 400, GROUND_Z)
-    placed['farm_spawner_2'] = client.place_device(CREATIVE_DEIMOS, FARM_X + 300, FARM_Y + 400, GROUND_Z)
+    placed['farm_spawner_1'] = client.place_device(CREATIVE_CREATURESPAWNER, FARM_X - 300, FARM_Y + 400, GROUND_Z)
+    placed['farm_spawner_2'] = client.place_device(CREATIVE_CREATURESPAWNER, FARM_X + 300, FARM_Y + 400, GROUND_Z)
 
-    # Wire Farm Portals
     client.add_event_binding(placed['btn_farm_enter'], 'On Interact', placed['tp_farm_depart'], 'Teleport')
     client.add_event_binding(placed['btn_farm_exit'], 'On Interact', placed['tp_farm_return_src'], 'Teleport')
 
-    print("\n=======================================================")
-    print("  PHASE 6: Wire Verse Properties & Configure Island")
-    print("=======================================================")
-    # 1. Wire game_manager_device
-    client.set_device_property(placed['gm'], 'coreHealthDevice', {'refPath': placed['core_sub']})
-    client.set_device_property(placed['gm'], 'waveControllerDevice', {'refPath': placed['wave_sub']})
-    client.set_device_property(placed['gm'], 'economyDevice', {'refPath': placed['economy_sub']})
-    client.set_device_property(placed['gm'], 'initialCountdownSeconds', 30.0)
+    print("\n--- PHASE 6: Configuring Verse Properties & Island Settings ---")
+    # Wire game_manager_device
+    try:
+        client.set_device_property(placed['gm'], 'coreHealthDevice', {'refPath': placed['core_sub']})
+        client.set_device_property(placed['gm'], 'waveControllerDevice', {'refPath': placed['wave_sub']})
+        client.set_device_property(placed['gm'], 'economyDevice', {'refPath': placed['economy_sub']})
+        client.set_device_property(placed['gm'], 'initialCountdownSeconds', 30.0)
+        print("  [+] game_manager_device configured")
+    except Exception as e:
+        print(f"  [!] game_manager_device warning: {e}")
 
-    # 2. Wire currency_economy_device
-    client.set_device_property(placed['economy'], 'coreHealthDevice', {'refPath': placed['core_sub']})
-    client.set_device_property(placed['economy'], 'startingGold', 500)
-    client.set_device_property(placed['economy'], 'tier2UpgradeCost', 1500)
-    client.set_device_property(placed['economy'], 'tier3UpgradeCost', 4000)
-    client.set_device_property(placed['economy'], 'repairCost', 500)
-    client.set_device_property(placed['economy'], 'shieldUpgradeCost', 1000)
+    try:
+        client.set_device_property(placed['economy'], 'coreHealthDevice', {'refPath': placed['core_sub']})
+        client.set_device_property(placed['economy'], 'startingGold', 500)
+        client.set_device_property(placed['economy'], 'tier2UpgradeCost', 1500)
+        client.set_device_property(placed['economy'], 'tier3UpgradeCost', 4000)
+        client.set_device_property(placed['economy'], 'repairCost', 500)
+        client.set_device_property(placed['economy'], 'shieldUpgradeCost', 1000)
+        print("  [+] currency_economy_device configured")
+    except Exception as e:
+        print(f"  [!] currency_economy_device warning: {e}")
 
-    # 3. Wire teleport_gate_device
-    client.set_device_property(placed['teleport'], 'coreHealthDevice', {'refPath': placed['core_sub']})
-    client.set_device_property(placed['teleport'], 'ticketCost', 100)
-    client.set_device_property(placed['teleport'], 'maxDurationSeconds', 45.0)
+    try:
+        client.set_device_property(placed['teleport'], 'coreHealthDevice', {'refPath': placed['core_sub']})
+        client.set_device_property(placed['teleport'], 'ticketCost', 100)
+        client.set_device_property(placed['teleport'], 'maxDurationSeconds', 45.0)
+        print("  [+] teleport_gate_device configured")
+    except Exception as e:
+        print(f"  [!] teleport_gate_device warning: {e}")
 
-    # 4. Wire core_health_device
-    client.set_device_property(placed['core'], 'maxCoreHealth', 30000.0)
-    client.set_device_property(placed['core'], 'maxCoreShield', 10000.0)
-    client.set_device_property(placed['core'], 'shieldRegenPerSecond', 500.0)
-    client.set_device_property(placed['core'], 'shieldRegenDelay', 10.0)
+    try:
+        client.set_device_property(placed['core'], 'maxCoreHealth', 30000.0)
+        client.set_device_property(placed['core'], 'maxCoreShield', 10000.0)
+        client.set_device_property(placed['core'], 'shieldRegenPerSecond', 500.0)
+        client.set_device_property(placed['core'], 'shieldRegenDelay', 10.0)
+        print("  [+] core_health_device configured")
+    except Exception as e:
+        print(f"  [!] core_health_device warning: {e}")
 
-    # 5. Configure IslandSettings Zero Build + Infinite Ammo
+    try:
+        client.set_device_property(placed['wave'], 'maxWaves', 30)
+        client.set_device_property(placed['wave'], 'defaultCombatDuration', 45.0)
+        client.set_device_property(placed['wave'], 'defaultGreedWindow', 45.0)
+        print("  [+] wave_controller_device configured")
+    except Exception as e:
+        print(f"  [!] wave_controller_device warning: {e}")
+
     island_ref = '/LastHorizon_Core/LastHorizon_Core.LastHorizon_Core:PersistentLevel.IslandSettings_0'
-    client.set_object_properties(island_ref, {
-        'allowBuilding': 'None',
-        'bInfiniteAmmo': True,
-        'bInfiniteMagazineAmmo': False
-    })
+    try:
+        client.set_object_properties(island_ref, {
+            'allowBuilding': 'None',
+            'bInfiniteAmmo': True,
+            'bInfiniteMagazineAmmo': False
+        })
+        print("  [+] IslandSettings: Zero Build + Infinite Ammo configured")
+    except Exception as e:
+        print(f"  [!] IslandSettings warning: {e}")
 
-    print("\n=======================================================")
-    print("  PHASE 7: Saving All Assets (OFPA)")
-    print("=======================================================")
+    print("\n--- PHASE 7: Saving Dirty Level Assets ---")
     client.save_all()
-    print("[SUCCESS] Complete Defend Athena level architecture deployed!")
-    print(f"Total devices generated: {len(placed)}")
+    print("\n[SUCCESS] Clean and deploy completed flawlessly!")
 
 if __name__ == '__main__':
-    run()
+    main()
